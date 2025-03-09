@@ -1,0 +1,13 @@
+
+with Icarus Verilog `https://bleyer.org/icarus/`
+
+```
+iverilog -o my_design object_cell.v
+vvp my_design
+>
+>
+> finish
+```
+
+If you have a mac, uh idk might be impossible
+
