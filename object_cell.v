@@ -83,7 +83,7 @@ module object_cell #(
     // logic to output the id if this handle is invalid
     assign data[`HNDL_WIDTH-1] = !outputs_id[`HNDL_WIDTH-1] | id[`HNDL_WIDTH-1];
     generate
-        for (genvar i = 0; i < `HNDL_WIDTH - 1; i = i + 1) begin
+        for (genvar i = 0; i < `HNDL_WIDTH - 1; i = i + 1) begin : generate_get_handle
             assign outputs_id[i] = outputs_id[i + 1] & (data[i + 1] == id[i + 1]);
             assign data[i] = (!outputs_id[i]) | id[i];
         end

@@ -26,7 +26,7 @@ module handle_handler (
 
     // create the cell array
     generate
-        for (genvar i = 0; i < `NUM_CELLS; i = i + 1) begin
+        for (genvar i = 0; i < `NUM_CELLS; i = i + 1) begin : generate_cell_array
             object_cell #(.id(i)) c (
                 i_clock, chip_select, chip_data,
                 write_to_map, get_available_id, write_invalid, read_address
