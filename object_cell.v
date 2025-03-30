@@ -21,6 +21,7 @@ read from handle 0: return the next available handle address
 */
 `define ADDR_WIDTH 64
 `define HNDL_WIDTH 3
+`define NUM_CELLS 32
 
 `define NOP 0
 `define READ 1
@@ -106,8 +107,15 @@ module handle_handler (
     wire get_available_id;
     wire write_invalid;
 
-    object_cell #(.id('b101)) c1 (i_clock, i_address, i_data, o_data, offset, write_to_map, get_available_id, write_invalid);
-    object_cell #(.id('b010)) c2 (i_clock, i_address, i_data, o_data, offset, write_to_map, get_available_id, write_invalid);
+    generate
+        for (genvar i = 0; i < `NUM_CELLS; i = i + 1) begin
+            object_cell #(.id(i)) c (
+                i_clock, i_address, i_data, 
+                o_data, offset, 
+                write_to_map, get_available_id, write_invalid
+            );
+        end
+    endgenerate
 
     // 
     wire handle_cmd;
