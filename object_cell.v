@@ -39,6 +39,8 @@ read from handle 0: return the next available handle address
 /*
 TODO: 
 add command to output a handle's address
+maybe write to BASE to release
+
 
 this module translates an object handle into the real address
   address bits: 
@@ -52,11 +54,12 @@ module object_cell #(
     input i_clock,
     input [`ADDR_WIDTH-1:0] i_address,
     input [`ADDR_WIDTH-1:0] i_data,
-    inout [`ADDR_WIDTH-1:0] o_data,
+    output [`ADDR_WIDTH-1:0] o_data,
     output wire [`ADDR_WIDTH-`HNDL_WIDTH-1:0] o_offset,
     input write_to_map,
     input get_available_id,
-    input write_invalid
+    input write_invalid,
+    input read_address
 );
     reg valid = 0;
     reg [`ADDR_WIDTH-`HNDL_WIDTH-1:0] mapped_address;
@@ -78,6 +81,9 @@ module object_cell #(
     // drive o_address with strong 1s and weak 0s
     // a == b can be implmented with ~|(a ^ b) equiv. nor(bits of xor(a, b))
     assign (strong1, weak0) o_offset = mapped_address & {(`ADDR_WIDTH-`HNDL_WIDTH){(i_address[`ADDR_WIDTH-2:`ADDR_WIDTH-`HNDL_WIDTH-1] == id)}};
+
+    // writing weak1 if not reading address or handle id don't match
+    assign (strong0, weak1) o_data = mapped_address | {(`ADDR_WIDTH){!(read_address & (i_address[`HNDL_WIDTH-1:0] == id))}};
     
     // handling getting available ids
     assign outputs_id[`HNDL_WIDTH-1] = get_available_id & !valid;
@@ -108,13 +114,14 @@ module handle_handler (
     wire write_to_map;
     wire get_available_id;
     wire write_invalid;
+    wire read_address;
 
     generate
         for (genvar i = 0; i < `NUM_CELLS; i = i + 1) begin
             object_cell #(.id(i)) c (
                 i_clock, i_address, i_data, 
                 o_data, offset, 
-                write_to_map, get_available_id, write_invalid
+                write_to_map, get_available_id, write_invalid, read_address
             );
         end
     endgenerate
@@ -124,16 +131,14 @@ module handle_handler (
     assign handle_cmd = &i_address[`ADDR_WIDTH-1:`ADDR_WIDTH-`HNDL_WIDTH-1];
 
     assign get_available_id = (i_op == `READ) & (handle_cmd) & (&i_address[`HNDL_WIDTH-1:0]);
-    assign (strong0, weak1) o_data = {(`HNDL_WIDTH){get_available_id}};
-    always @(negedge i_clock) begin
-        $display("At time %t | %h ",
-                $time, o_data);
-    end
 
     assign write_to_map = (i_op == `WRITE) & (handle_cmd) & (|i_data);
 
     assign write_invalid = (i_op == `WRITE) & (handle_cmd) & !(|i_data);
     
+    assign read_address = (i_op == `READ) & (handle_cmd) & !(&i_address[`HNDL_WIDTH-1:0]);
+    assign (strong0, weak1) o_data = {(`HNDL_WIDTH){get_available_id | read_address}};
+
     // outputs
     assign o_op = i_op & {(2){!handle_cmd}};
     // output address, result of translation if translating, 0 if its a handle operation
@@ -151,18 +156,18 @@ module object_cell_tb;
         # 4 addr = `H_OP_BASE;    data = 0; op = `READ;
         # 4 addr = `H_OP_BASE;    data = 0; op = `READ;
         # 4 addr = `H_OP_BASE;    data = 0; op = `READ;
-        # 4 addr = `H_OP(2);        data = 'h10; op = `WRITE;
-        # 4 addr = `H_ADDR(2, 1);   data = 5; op = `READ;
-        # 4 addr = `H_ADDR(2, 1);   data = 8; op = `WRITE;
-        # 4 addr = `H_OP(2);        data = 2; op = `WRITE;
-        # 4 addr = `H_ADDR(2, 1);   data = 1; op = `READ;
-        # 4 addr = `H_ADDR(2, 1);   data = 2; op = `READ;
-        # 4 addr = `H_ADDR(2, 1);   data = 3; op = `READ;
-        # 4 addr = `H_OP(2);        data = 0; op = `WRITE;
+        # 4 addr = `H_OP(2);      data = 'h10; op = `WRITE;
+        # 4 addr = `H_ADDR(2, 1); data = 5; op = `READ;
+        # 4 addr = `H_ADDR(2, 1); data = 8; op = `WRITE;
+        # 4 addr = `H_OP(2);      data = 6; op = `WRITE;
+        # 4 addr = `H_ADDR(2, 1); data = 1; op = `READ;
+        # 4 addr = `H_ADDR(2, 1); data = 2; op = `READ;
+        # 4 addr = `H_ADDR(2, 1); data = 3; op = `READ;
+        # 4 addr = `H_OP(2);      data = 0; op = `READ;
+        # 4 addr = `H_OP(2);      data = 0; op = `WRITE;
         # 4 addr = `H_OP_BASE;    data = 0; op = `READ;
         # 4 addr = `H_OP_BASE;    data = 0; op = `READ;
-        # 4 addr = 'h802c;  data = 1; op = `NOP;
-        # 0 $stop;
+        # 4 $stop;
     end
     /* Make a regular pulsing clock. */
     reg clk = 0;
