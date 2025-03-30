@@ -38,11 +38,7 @@ read from handle 0: return the next available handle address
 
 /*
 TODO: 
-add wire for write mapped_address
-add wire to get emptiness (return id if invalid)
-add validness check
-output should probably only be an offset that gets added so theoretically the hardware only would need 1 adder
-
+add command to output a handle's address
 
 this module translates an object handle into the real address
   address bits: 
