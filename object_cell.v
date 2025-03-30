@@ -20,8 +20,13 @@ read from handle 0: return the next available handle address
 
 */
 `define ADDR_WIDTH 64
-`define HNDL_WIDTH 3
+`define HNDL_WIDTH 15
 `define NUM_CELLS 32
+
+// for testing, for terminal visibility
+// `define ADDR_WIDTH 16
+// `define HNDL_WIDTH 3
+// `define NUM_CELLS 8
 
 `define NOP 0
 `define READ 1
@@ -29,6 +34,7 @@ read from handle 0: return the next available handle address
 
 `define H_ADDR(handle_id, address) ((1 << (`ADDR_WIDTH-1)) + (handle_id << (`ADDR_WIDTH-`HNDL_WIDTH-1)) + address) 
 `define H_OP(handle_id) ((1 << (`ADDR_WIDTH-1)) + ({(`HNDL_WIDTH){1'b1}} << (`ADDR_WIDTH-`HNDL_WIDTH-1)) + handle_id)
+`define H_OP_BASE ((1 << (`ADDR_WIDTH-1)) + ({(`HNDL_WIDTH){1'b1}} << (`ADDR_WIDTH-`HNDL_WIDTH-1)) + {(`HNDL_WIDTH){1'b1}})
 
 /*
 TODO: 
@@ -57,12 +63,12 @@ module object_cell #(
     input write_invalid
 );
     reg valid = 0;
-    reg [`ADDR_WIDTH-`HNDL_WIDTH-1:0] mapped_address = 99;
+    reg [`ADDR_WIDTH-`HNDL_WIDTH-1:0] mapped_address;
     wire [`HNDL_WIDTH-1:0] outputs_id;
     
     // commit any data changes on falling edge
     always @(negedge i_clock) begin
-        if (&outputs_id & o_data[0] == id[0]) begin
+        if (outputs_id[0] & (o_data[0] == id[0])) begin
             valid = 1;
         end
         
@@ -123,6 +129,10 @@ module handle_handler (
 
     assign get_available_id = (i_op == `READ) & (handle_cmd) & (&i_address[`HNDL_WIDTH-1:0]);
     assign (strong0, weak1) o_data = {(`HNDL_WIDTH){get_available_id}};
+    always @(negedge i_clock) begin
+        $display("At time %t | %h ",
+                $time, o_data);
+    end
 
     assign write_to_map = (i_op == `WRITE) & (handle_cmd) & (|i_data);
 
@@ -141,9 +151,10 @@ module object_cell_tb;
     reg [`ADDR_WIDTH-1:0] data = 0;
 
     initial begin
-        # 1 addr = `H_OP('b111);    data = 0; op = `READ;
-        # 4 addr = `H_OP('b111);    data = 0; op = `READ;
-        # 4 addr = `H_OP('b111);    data = 0; op = `READ;
+        # 1 addr = `H_OP_BASE;    data = 0; op = `READ;
+        # 4 addr = `H_OP_BASE;    data = 0; op = `READ;
+        # 4 addr = `H_OP_BASE;    data = 0; op = `READ;
+        # 4 addr = `H_OP_BASE;    data = 0; op = `READ;
         # 4 addr = `H_OP(2);        data = 'h10; op = `WRITE;
         # 4 addr = `H_ADDR(2, 1);   data = 5; op = `READ;
         # 4 addr = `H_ADDR(2, 1);   data = 8; op = `WRITE;
@@ -152,8 +163,8 @@ module object_cell_tb;
         # 4 addr = `H_ADDR(2, 1);   data = 2; op = `READ;
         # 4 addr = `H_ADDR(2, 1);   data = 3; op = `READ;
         # 4 addr = `H_OP(2);        data = 0; op = `WRITE;
-        # 4 addr = `H_OP('b111);    data = 0; op = `READ;
-        # 4 addr = `H_OP('b111);    data = 0; op = `READ;
+        # 4 addr = `H_OP_BASE;    data = 0; op = `READ;
+        # 4 addr = `H_OP_BASE;    data = 0; op = `READ;
         # 4 addr = 'h802c;  data = 1; op = `NOP;
         # 0 $stop;
     end
