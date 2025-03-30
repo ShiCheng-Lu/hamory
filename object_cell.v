@@ -20,8 +20,8 @@ read from handle 0: return the next available handle address
 
 */
 `define ADDR_WIDTH 64
-`define HNDL_WIDTH 8
-`define NUM_CELLS 4
+`define HNDL_WIDTH 15
+`define NUM_CELLS 32
 
 // for testing, for terminal visibility
 // `define ADDR_WIDTH 16
@@ -29,16 +29,7 @@ read from handle 0: return the next available handle address
 // `define NUM_CELLS 8
 
 /*
-TODO: 
-add command to output a handle's address
-maybe write to BASE to release
-
-
-this module translates an object handle into the real address
-  address bits: 
-   [W-1]     = is handle
-   [W-2:W-7] = object id
-   [W-8:0]   = address offset
+this module stores a memory offset for a particular handle
 */
 module object_cell #(
     parameter [`HNDL_WIDTH-1:0] id = 0
@@ -60,10 +51,15 @@ module object_cell #(
     always @(negedge clock) begin
         // $display("%d | cell %d: %d, %d, %h, %h", $time, id, enabled, write_to_map, data, mapped_address);
 
+        // at the clock edge, we are outputting our id into the data line, and the last bit is correct
+        // then it must have been a get_available_id, and we are the lowest, so set self as valid to make 
+        // get_available_id atomically increment, this way get_available_id always returns a unique, valid handle
+        // ready to be used.
         if (outputs_id[0] & (data[0] == id[0])) begin
             valid = 1;
         end
         
+        // the current cell is being addressed, if there was a handle command, perform it.
         if (enabled) begin
             if (write_invalid) valid <= 0;
             if (write_to_map) mapped_address <= data;
