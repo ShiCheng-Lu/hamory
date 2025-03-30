@@ -54,28 +54,28 @@ module object_cell #(
     reg valid = 0;
     reg [`ADDR_WIDTH-`HNDL_WIDTH-2:0] mapped_address = 0;
     wire [`HNDL_WIDTH-1:0] outputs_id;
-    wire disabled;
+    wire enabled;
     
     // commit any data changes on falling edge
     always @(negedge clock) begin
-        // $display("%d | cell %d: %d, %d, %h, %h", $time, id, disabled, write_to_map, data, mapped_address);
+        // $display("%d | cell %d: %d, %d, %h, %h", $time, id, enabled, write_to_map, data, mapped_address);
 
         if (outputs_id[0] & (data[0] == id[0])) begin
             valid = 1;
         end
         
-        if (!disabled) begin
+        if (enabled) begin
             if (write_invalid) valid <= 0;
             if (write_to_map) mapped_address <= data;
         end
     end
 
-    assign disabled = |(cs ^ id);
+    assign enabled = !(|(cs ^ id));
 
     // if handle matches with this cell
     // drive o_address with strong 1s and weak 0s
     // a == b can be implmented with ~|(a ^ b) equiv. nor(bits of xor(a, b))
-    assign data = {(`ADDR_WIDTH){disabled | !read_address}} | mapped_address;
+    assign data = {(`ADDR_WIDTH){!(enabled & read_address)}} | mapped_address;
     
     // handling getting available ids
     assign outputs_id[`HNDL_WIDTH-1] = get_available_id & !valid;
